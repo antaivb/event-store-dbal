@@ -26,6 +26,7 @@ use Broadway\EventStore\Management\CriteriaNotSupportedException;
 use Broadway\EventStore\Management\EventStoreManagement;
 use Broadway\Serializer\Serializer;
 use Broadway\UuidGenerator\Converter\BinaryUuidConverterInterface;
+use Broadway\Upcasting\UpcasterChain;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -76,12 +77,18 @@ class DBALEventStore implements EventStore, EventStoreManagement
      */
     private $binaryUuidConverter;
 
+    /**
+     * @var UpcasterChain
+     */
+    private $upcasterChain;
+
     public function __construct(
         Connection $connection,
         Serializer $payloadSerializer,
         Serializer $metadataSerializer,
         string $tableName,
         bool $useBinary,
+        UpcasterChain $upcasterChain,
         BinaryUuidConverterInterface $binaryUuidConverter = null
     ) {
         $this->connection = $connection;
@@ -90,6 +97,7 @@ class DBALEventStore implements EventStore, EventStoreManagement
         $this->tableName = $tableName;
         $this->useBinary = $useBinary;
         $this->binaryUuidConverter = $binaryUuidConverter;
+        $this->upcasterChain = $upcasterChain;
 
         if ($this->useBinary && null === $binaryUuidConverter) {
             throw new \LogicException('binary UUID converter is required when using binary');
@@ -242,11 +250,14 @@ class DBALEventStore implements EventStore, EventStoreManagement
 
     private function deserializeEvent(array $row): DomainMessage
     {
+        $payload = json_decode($row['payload'], true);
+        $payload = $this->upcasterChain->upcast($payload);
+
         return new DomainMessage(
             $this->convertStorageValueToIdentifier($row['uuid']),
             (int) $row['playhead'],
             $this->metadataSerializer->deserialize(json_decode($row['metadata'], true)),
-            $this->payloadSerializer->deserialize(json_decode($row['payload'], true)),
+            $this->payloadSerializer->deserialize($payload),
             DateTime::fromString($row['recorded_on'])
         );
     }
