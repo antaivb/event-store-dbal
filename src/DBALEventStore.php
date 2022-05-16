@@ -25,10 +25,7 @@ use Broadway\EventStore\Management\Criteria;
 use Broadway\EventStore\Management\CriteriaNotSupportedException;
 use Broadway\EventStore\Management\EventStoreManagement;
 use Broadway\Serializer\Serializer;
-use Broadway\Upcasting\SequentialUpcasterChain;
-use Broadway\Upcasting\Upcaster;
 use Broadway\UuidGenerator\Converter\BinaryUuidConverterInterface;
-use Broadway\Upcasting\UpcasterChain;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -79,18 +76,12 @@ class DBALEventStore implements EventStore, EventStoreManagement
      */
     private $binaryUuidConverter;
 
-    /**
-     * @var UpcasterChain
-     */
-    private $upcasterChain;
-
     public function __construct(
         Connection $connection,
         Serializer $payloadSerializer,
         Serializer $metadataSerializer,
         string $tableName,
         bool $useBinary,
-        Upcaster $upcaster,
         BinaryUuidConverterInterface $binaryUuidConverter = null
     ) {
         $this->connection = $connection;
@@ -99,7 +90,6 @@ class DBALEventStore implements EventStore, EventStoreManagement
         $this->tableName = $tableName;
         $this->useBinary = $useBinary;
         $this->binaryUuidConverter = $binaryUuidConverter;
-        $this->upcasterChain = new SequentialUpcasterChain([$upcaster]);
 
         if ($this->useBinary && null === $binaryUuidConverter) {
             throw new \LogicException('binary UUID converter is required when using binary');
