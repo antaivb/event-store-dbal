@@ -250,17 +250,13 @@ class DBALEventStore implements EventStore, EventStoreManagement
         return $this->loadStatement;
     }
 
-    private function deserializeEvent(array $row): DomainMessage
+    protected function deserializeEvent(array $row): DomainMessage
     {
-        $playhead = (int) $row['playhead'];
-        $payload = json_decode($row['payload'], true);
-        $payload = $this->upcasterChain->upcast($payload, $playhead);
-
         return new DomainMessage(
             $this->convertStorageValueToIdentifier($row['uuid']),
-            $playhead,
+            (int) $row['playhead'],
             $this->metadataSerializer->deserialize(json_decode($row['metadata'], true)),
-            $this->payloadSerializer->deserialize($payload),
+            $this->payloadSerializer->deserialize(json_decode($row['payload'], true)),
             DateTime::fromString($row['recorded_on'])
         );
     }
